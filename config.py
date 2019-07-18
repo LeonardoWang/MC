@@ -120,7 +120,8 @@ class Compression(object):
                 pruner.apply_mask(param_mask_info.param, mask)
     
 
-    def _prepare_quantize_list(self, model, quantize_all = False)
+    def _prepare_quantize_list(self, model, quantize_all = False):
+        pass
 
     def quantize_model(self, model, quantize_all = False):
         if quantize_all:

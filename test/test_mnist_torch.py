@@ -1,5 +1,3 @@
-from __future__ import print_function
-from __future__ import print_function
 import argparse
 import torch
 import torch.nn as nn
@@ -7,65 +5,35 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import datasets, transforms
 
+import mocknni as nni
+
 import sys
 sys.path.append('../')
-from config import *
+#from config import *
+
 
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
         self.conv1 = nn.Conv2d(1, 20, 5, 1)
-        """module, pruner_ratio, pruner_dimension = None, pruner_name = None"""
-        """@nni.compression.weight_pruning()"""
-        Compression().param_mask(self.conv1.weight , 0.5, None, 'PytorchLevelParameterPruner')
-        """@nni.compression.quantize(self.conv1)"""
         self.conv2 = nn.Conv2d(20, 50, 5, 1)
         self.fc1 = nn.Linear(4*4*50, 500)
         self.fc2 = nn.Linear(500, 10)
-        
 
-        #for module_full_name, module in self.named_parameters():
-        #    print('self parameters',module_full_name,type(module))
-
-        
 
     def forward(self, x):
-        #print(x.size())
-        #use_mask(self.conv1.weight,0.5,0)
-        '''
-        self.conv1.weight = func(self.conv1.weight, 0.5, epoch_num, minibatch_num):
-            if epoch_num > 5:
-                indice = min(self.conv1.weight)
-                mask = gen_mask(indice)
-                return self.conv1.weight * mask
-        '''
         x = F.relu(self.conv1(x))
-        #print('type',type(x),x.dtype,x.to(dtype=torch.float16).dtype)
-        #print(x.size(),type(self.conv1.name),self.conv1.named_parameters())
-        
-        #print(torch.norm(x,p=0)/torch.numel(x))
         x = F.max_pool2d(x, 2, 2)
-        #print(x.size())
-        #x = use_mask(x,0.5,1)
         x = F.relu(self.conv2(x))
-        #print(x.size())
         x = F.max_pool2d(x, 2, 2)
-        #print(x.size())
-        #x = use_mask(x,0.5,2)
         x = x.view(-1, 4*4*50)
-        #print(x.size())
         x = F.relu(self.fc1(x))
-        #print(x.size())
         x = self.fc2(x)
-        #print(x.size())
-        #print(torch.norm(x,p=0)/torch.numel(x))
         return F.log_softmax(x, dim=1)
     
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
-        Compression().apply_mask(model,epoch)
-
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model(data)
@@ -91,9 +59,8 @@ def test(args, model, device, test_loader):
 
     test_loss /= len(test_loader.dataset)
 
-    print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
-        test_loss, correct, len(test_loader.dataset),
-        100. * correct / len(test_loader.dataset)))
+    nni.report_final_result( (test_loss, correct, len(test_loader.dataset)) )
+
 
 def main():
     # Training settings
@@ -141,8 +108,8 @@ def main():
 
 
     model = Net().to(device)
+    model = nni.PruningCompressor().compress(model)
     
-    #model.load_state_dict(torch.load('mnist_cnn.pt',map_location='cpu'))
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
     level = {}
     count = 0
