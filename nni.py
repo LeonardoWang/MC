@@ -32,7 +32,7 @@ class Compressor:
     def compress_model(self, model):
         raise NotImplementedError()
 
-   def new_epoch(self, epoch):
+    def new_epoch(self, epoch):
         raise NotImplementedError()
 
     def step(self):

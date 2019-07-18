@@ -72,7 +72,7 @@ def main():
         batch_size = 1000, shuffle = True)
 
     #model = Mnist().to(device)
-    model = DebugCompressor().compress(Mnist()).to(device)
+    model = PytorchQuantizer().compress(Mnist()).to(device)
 
     optimizer = torch.optim.SGD(model.parameters(), lr = 0.01, momentum = 0.5)
     for epoch in range(10):
