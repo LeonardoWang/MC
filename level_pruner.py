@@ -1,9 +1,23 @@
-import nni
+from nni import TensorflowCompressor, TorchCompressor
 
+import tensorflow as tf
 import torch
 
 
-class LevelPruner(nni.Compressor):
+class TensorflowLevelPruner(TensorflowCompressor):
+    def __init__(self, sparsity = 0.5):
+        super().__init__()
+        self.sparsity = sparsity
+
+    def calc_pruning_mask(self, layer, weight):
+        threshold = tf.contrib.distributions.percentile(weight, self.sparsity * 100)
+        return tf.cast(tf.math.greater(weight, threshold), weight.dtype)
+
+    def new_epoch(self):
+        pass
+
+
+class TorchLevelPruner(TorchCompressor):
     def __init__(self, sparsity = 0.5):
         super().__init__()
         self.sparsity = sparsity

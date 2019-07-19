@@ -1,4 +1,6 @@
-import torch
+# import on demand
+torch = None
+tf = None
 
 _cur_epoch = 0
 
@@ -12,16 +14,16 @@ def report_final_result(data):
     _cur_epoch += 1
 
 
-class Compressor:
+class TorchCompressor:
     def __init__(self):
-        pass
+        global torch
+        import torch
 
     def calc_pruning_mask(self, layer, weight):
         raise NotImplementedError()
 
     def new_epoch(self):
         raise NotImplementedError()
-
 
     def compress(self, model):
         for name, layer in model.named_modules():
@@ -33,7 +35,6 @@ class Compressor:
                 pass
         model.new_epoch = lambda: self.new_epoch()
         return model
-
 
     def _instrument_layer(self, layer):
         assert not hasattr(layer, '_nni_orig_forward')
@@ -48,3 +49,32 @@ class Compressor:
             return ret
 
         layer.forward = new_forward
+
+
+class TensorflowCompressor:
+    def __init__(self):
+        global tf
+        import tensorflow as tf
+
+    def calc_pruning_mask(self, layer, weight):
+        raise NotImplementedError()
+
+    def new_epoch(self):
+        raise NotImplementedError()
+
+    def compress(self, graph = None):
+        if graph is None:
+            graph = tf.get_default_graph()
+        for op in graph.get_operations():
+            if op.type == 'Conv2D':
+                self._instrument_layer(op, 1)
+
+    def compress_default_graph(self):
+        self.compress()
+
+    def _instrument_layer(self, layer, weight_idx):
+        weight_op = layer.inputs[weight_idx].op
+        weight = weight_op.inputs[0]
+        mask = self.calc_pruning_mask(layer, weight)
+        new_weight = mask * weight
+        tf.contrib.graph_editor.swap_outputs(weight_op, new_weight.op)
