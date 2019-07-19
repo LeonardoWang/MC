@@ -1,7 +1,9 @@
-from nni import TensorflowCompressor, TorchCompressor
+# I suggest split this file to two modules
 
 import tensorflow as tf
 import torch
+
+from nni import TensorflowCompressor, TorchCompressor
 
 
 class TensorflowLevelPruner(TensorflowCompressor):
