@@ -1,6 +1,6 @@
 import nni
 
-from compress import *
+from level_pruner import LevelPruner
 
 import torch
 import torch.nn.functional as F
@@ -72,10 +72,11 @@ def main():
         batch_size = 1000, shuffle = True)
 
     #model = Mnist().to(device)
-    model = DebugCompressor().compress(Mnist()).to(device)
+    model = LevelPruner().compress(Mnist()).to(device)
 
     optimizer = torch.optim.SGD(model.parameters(), lr = 0.01, momentum = 0.5)
     for epoch in range(10):
+        model.new_epoch()
         train(model, device, train_loader, optimizer, epoch)
         test(model, device, test_loader)
 

@@ -1,0 +1,18 @@
+import nni
+
+import torch
+
+
+class LevelPruner(nni.Compressor):
+    def __init__(self, sparsity = 0.5):
+        super().__init__()
+        self.sparsity = sparsity
+
+    def calc_pruning_mask(self, layer, weight):
+        w_abs = weight.abs()
+        k = int(weight.numel() * self.sparsity)
+        threshold = torch.topk(w_abs.view(-1), k, largest = False).values.max()
+        return torch.gt(w_abs, threshold).type(weight.type())
+
+    def new_epoch(self):
+        pass

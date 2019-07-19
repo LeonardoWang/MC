@@ -1,4 +1,4 @@
-import torch.nn
+import torch
 
 _cur_epoch = 0
 
@@ -14,26 +14,37 @@ def report_final_result(data):
 
 class Compressor:
     def __init__(self):
-        self._last_epoch = -1
+        pass
+
+    def calc_pruning_mask(self, layer, weight):
+        raise NotImplementedError()
+
+    def new_epoch(self):
+        raise NotImplementedError()
+
 
     def compress(self, model):
-        compressed_model = self.compress_model(model)
-        compressed_model.register_forward_pre_hook(self._forward_pre_hook)
-        return compressed_model
+        for name, layer in model.named_modules():
+            try:
+                if isinstance(layer.weight, torch.nn.Parameter) and \
+                        isinstance(layer.weight.data, torch.Tensor):
+                    self._instrument_layer(layer)
+            except AttributeError:
+                pass
+        model.new_epoch = lambda: self.new_epoch()
+        return model
 
-    def _forward_pre_hook(self, module, input):
-        if module.training:
-            if self._last_epoch < _cur_epoch:
-                self.new_epoch(_cur_epoch)
-                self._last_epoch = _cur_epoch
-            self.step()
 
+    def _instrument_layer(self, layer):
+        assert not hasattr(layer, '_nni_orig_forward')
+        layer._nni_orig_forward = layer.forward
 
-    def compress_model(self, model):
-        raise NotImplementedError()
+        def new_forward(*input):
+            mask = self.calc_pruning_mask(layer, layer.weight.data)
+            layer._nni_orig_weight_data = layer.weight.data
+            layer.weight.data = layer.weight.data.mul(mask)
+            ret = layer._nni_orig_forward(*input)
+            layer.weight.data = layer._nni_orig_weight_data
+            return ret
 
-   def new_epoch(self, epoch):
-        raise NotImplementedError()
-
-    def step(self):
-        raise NotImplementedError()
+        layer.forward = new_forward
