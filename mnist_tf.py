@@ -1,6 +1,6 @@
 import nni
 
-from level_pruner import TensorflowLevelPruner as LevelPruner
+from level_pruner import TensorflowLevelPruner
 
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
@@ -74,13 +74,11 @@ def main():
 
     model = Mnist()
 
-    compressor = LevelPruner(0.5)
-    compressor.compress_default_graph()
+    TensorflowLevelPruner(0.5).compress_default_graph()
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         for batch_idx in range(2000):
-            compressor.new_epoch()
             batch = data.train.next_batch(2000)
             model.train_step.run(feed_dict = {
                 model.images: batch[0],

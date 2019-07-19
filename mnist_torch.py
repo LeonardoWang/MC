@@ -1,6 +1,6 @@
 import nni
 
-from level_pruner import TorchLevelPruner as LevelPruner
+from level_pruner import TorchLevelPruner
 
 import torch
 import torch.nn.functional as F
@@ -71,12 +71,10 @@ def main():
         datasets.MNIST('data', train = False, transform = trans),
         batch_size = 1000, shuffle = True)
 
-    compressor = LevelPruner(0.5)
-    model = compressor.compress(Mnist()).to(device)
+    model = TorchLevelPruner(0.5).compress(Mnist()).to(device)
 
     optimizer = torch.optim.SGD(model.parameters(), lr = 0.01, momentum = 0.5)
     for epoch in range(10):
-        compressor.new_epoch()
         train(model, device, train_loader, optimizer, epoch)
         test(model, device, test_loader)
 

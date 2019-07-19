@@ -27,9 +27,6 @@ class TorchCompressor:
         '''
         raise NotImplementedError()
 
-    def new_epoch(self):
-        raise NotImplementedError()
-
     def compress(self, model):
         # search for all layers which have parameter "weight"
         for name, layer in model.named_modules():
@@ -71,9 +68,6 @@ class TensorflowCompressor:
             layer   a tf Operation which is known to have weight parameter
             weight  a tf Tensor
         '''
-        raise NotImplementedError()
-
-    def new_epoch(self):
         raise NotImplementedError()
 
     def compress(self, graph):

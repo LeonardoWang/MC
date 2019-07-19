@@ -15,9 +15,6 @@ class TensorflowLevelPruner(TensorflowCompressor):
         threshold = tf.contrib.distributions.percentile(weight, self.sparsity * 100)
         return tf.cast(tf.math.greater(weight, threshold), weight.dtype)
 
-    def new_epoch(self):
-        pass
-
 
 class TorchLevelPruner(TorchCompressor):
     def __init__(self, sparsity = 0.5):
@@ -29,6 +26,3 @@ class TorchLevelPruner(TorchCompressor):
         k = int(weight.numel() * self.sparsity)
         threshold = torch.topk(w_abs.view(-1), k, largest = False).values.max()
         return torch.gt(w_abs, threshold).type(weight.type())
-
-    def new_epoch(self):
-        pass
