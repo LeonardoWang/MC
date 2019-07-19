@@ -18,7 +18,51 @@ class DebugCompressor(nni.Compressor):
     def new_epoch(self, epoch):
         pass
 
-class PytorchPruner(nni.Compressor):
+class _PytorchWrappedModule(nn.Module):
+    def __init__(self, wrapped_module, mask=None):
+        super().__init__()
+        self.wrapped_module = wrapped_module
+        self.mask= mask
+    
+    def forward(self, x):
+        if self.mask is not None and getattr(self.wrapped_module, 'weight', None) is not None:
+            prune_algorithm.apply_mask(self.wrapped_module.weight, self.mask)
+        x = self.wrapped_module(x)
+        return x
+
+class PytorchWrapperPruner(nni.Compressor):
+    def __init__(self):
+        super().__init__()
+        self.model = None
+        
+
+    def compress_model(self, model):
+        self.model = model
+        self._prepare_model(model)
+
+        return model
+
+    def _prepare_model(self, model, prefix=''):
+        for name, module in model.named_children():
+            full_name = prefix + name
+            if type(module) is nn.Conv2d or type(module) is nn.Linear:
+                mask = self.generate_mask(module.weight, sparsity = 0.5)
+                new_module = _PytorchWrappedModule(module, mask)
+                setattr(model, name, new_module)
+            else:
+                self._prepare_model(module, full_name)
+
+    def generate_mask(self, param, sparsity):
+        return prune_algorithm.set_level_mask(param, sparsity)
+
+    def step(self):
+        pass
+    def new_epoch(self, epoch):
+        pass
+
+
+
+class PytorchSetMaskPruner(nni.Compressor):
     def __init__(self):
         super().__init__()
         self.model = None
@@ -49,7 +93,7 @@ class PytorchPruner(nni.Compressor):
             if param_mask is not None:
                 if not self.fixed_mask:
                     param_mask = prune_algorithm.set_level_mask(param, 0.5)
-                    self.mask[param_name] = param_mask
+                    self.mask_list[param_name] = param_mask
 
     def _mask_all(self, model):
         for param_name, param in model.named_parameters():
