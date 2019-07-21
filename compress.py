@@ -1,4 +1,4 @@
-__all__ = [ 'DebugCompressor','PytorchPruner','PytorchQuantizer' ]
+__all__ = [ 'DebugCompressor','PytorchWrapperPruner','PytorchWrapperQuantizer' ]
 
 import nni
 import prune_algorithm
@@ -19,12 +19,22 @@ class DebugCompressor(nni.Compressor):
         pass
 
 class _PytorchWrappedModule(nn.Module):
-    def __init__(self, wrapped_module, mask=None):
+    def __init__(self, wrapped_module, mask=None, quantizer=None, q_bits=None, bias_quantizer = None, bias_bits =None):
         super().__init__()
         self.wrapped_module = wrapped_module
         self.mask= mask
+        self.quantizer = quantizer
+        self.q_bits = q_bits
+        self.bias_quantizer = bias_quantizer
+        self.bias_bits = bias_bits
     
     def forward(self, x):
+        if self.quantizer is not None and self.q_bits is not None:
+            if getattr(self.wrapped_module, 'weight', None) is not None:
+                self.wrapped_module.weight = self.quantizer(self.wrapped_module.weight, self.q_bits)
+            if getattr(self.wrapped_module, 'bias', None) is not None:
+                self.wrapped_module.bias = self.quantizer(self.wrapped_module.bias, self.q_bits)
+
         if self.mask is not None and getattr(self.wrapped_module, 'weight', None) is not None:
             prune_algorithm.apply_mask(self.wrapped_module.weight, self.mask)
         x = self.wrapped_module(x)
@@ -39,7 +49,6 @@ class PytorchWrapperPruner(nni.Compressor):
     def compress_model(self, model):
         self.model = model
         self._prepare_model(model)
-
         return model
 
     def _prepare_model(self, model, prefix=''):
@@ -59,6 +68,45 @@ class PytorchWrapperPruner(nni.Compressor):
         pass
     def new_epoch(self, epoch):
         pass
+
+class PytorchWrapperQuantizer(nni.Compressor):
+    def __init__(self):
+        super().__init__()
+        self.model = None
+        self.q_bits = 8
+
+    def compress_model(self, model):
+        self.model = model
+        self._prepare_model(model)
+        return model
+
+    def _prepare_model(self, model, prefix=''):
+        for name, module in model.named_children():
+            full_name = prefix + name
+            if type(module) is nn.Conv2d or type(module) is nn.Linear:
+                new_module = _PytorchWrappedModule(module, None, self.quantize_param, self.q_bits, self.quantize_param, self.q_bits)
+                setattr(model, name, new_module)
+            if type(Module) is nn.ReLU:
+                new_module = self.replace_relu_fn(module, self.q_bits)
+                setattr(model, name, new_module)
+            else:
+                self._prepare_model(module, full_name)
+
+    def step(self):
+        pass
+
+    def new_epoch(self, epoch):
+        pass
+
+    def replace_relu_fn(self, module, q_bits):
+        return quantize_algorithm.ClippedLinearQuantization(q_bits, 1, dequantize=True, inplace=module.inplace)
+
+    def quantize_param(self, param, q_bits):
+        scale, zero_point = quantize_algorithm.symmetric_linear_quantization_params(q_bits, 1)
+        out = param.clamp(-1, 1)
+        out = quantize_algorithm.LinearQuantizeSTE.apply(out, scale, zero_point, True, False)
+        return out
+
 
 
 
