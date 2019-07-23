@@ -18,6 +18,12 @@ class DebugCompressor(nni.Compressor):
     def new_epoch(self, epoch):
         pass
 
+def _has_children(module):
+    try:
+        next(module.children())
+        return True
+    except StopIteration:
+        return False
 class _PytorchWrappedModule(nn.Module):
     def __init__(self, wrapped_module, mask=None, quantizer=None, q_bits=None, bias_quantizer = None, bias_bits =None):
         super().__init__()
