@@ -1,12 +1,13 @@
 import nni
 
 from level_pruner import TorchLevelPruner
+from AGPruner import TorchAGPruner
 
 import torch
 import torch.nn.functional as F
 from torchvision import datasets, transforms
 
-
+AGPR = TorchAGPruner(initial_sparsity=0, final_sparsity=0.8, start_epoch=1, end_epoch=0, frequency=1)
 class Mnist(torch.nn.Module):
     def __init__(self):
         super().__init__()
@@ -36,6 +37,7 @@ def train(model, device, train_loader, optimizer, epoch):
         loss.backward()
         optimizer.step()
         if batch_idx % 100 == 0:
+            AGPR.get_epoch(batch_idx / 100)
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
@@ -71,12 +73,8 @@ def main():
         datasets.MNIST('data', train = False, transform = trans),
         batch_size = 1000, shuffle = True)
 
-<<<<<<< HEAD:mnist.py
-    #model = Mnist().to(device)
-    model = PytorchQuantizer().compress(Mnist()).to(device)
-=======
-    model = TorchLevelPruner(0.5).compress(Mnist()).to(device)
->>>>>>> cf99d2c162e13ad6a5377fe23bdb0e6b5b6f8a18:mnist_torch.py
+    #model = TorchLevelPruner(0.5).compress(Mnist()).to(device)
+    model = AGPR.compress(Mnist()).to(device)
 
     optimizer = torch.optim.SGD(model.parameters(), lr = 0.01, momentum = 0.5)
     for epoch in range(10):

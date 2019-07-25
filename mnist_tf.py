@@ -1,11 +1,11 @@
 import nni
 
 from level_pruner import TensorflowLevelPruner
-
+from AGPruner import TensorflowAGPruner
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 
-
+AGPR = TensorflowAGPruner(initial_sparsity=0, final_sparsity=0.8, start_epoch=1, end_epoch=10, frequency=1)
 def weight_variable(shape):
     return tf.Variable(tf.truncated_normal(shape, stddev = 0.1))
 
@@ -74,7 +74,7 @@ def main():
 
     model = Mnist()
 
-    TensorflowLevelPruner(0.5).compress_default_graph()
+    AGPR.compress_default_graph()
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
@@ -86,6 +86,7 @@ def main():
                 model.keep_prob: 0.5
             })
             if batch_idx % 100 == 0:
+                AGPR.get_epoch(sess, batch_idx / 100)
                 test_acc = model.accuracy.eval(feed_dict = {
                     model.images: data.test.images,
                     model.labels: data.test.labels,

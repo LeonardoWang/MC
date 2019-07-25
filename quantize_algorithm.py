@@ -1,6 +1,11 @@
 import torch
 import torch.nn as nn
 from collections import defaultdict
+def DoReFaQuantize(input_ri, q_bits):
+    scale = pow(2, q_bits-1)
+    input_ri.mul_(scale).round_()
+    input_ri.div_(scale)
+    return input_ri
 
 def linear_quantize(input, scale, zero_point, inplace=False):
         if inplace:
