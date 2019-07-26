@@ -14,8 +14,10 @@ class PytorchQATquantizer(TorchCompressor):
         @staticmethod
         def forward(ctx, input, scale, zero_point):
             print("QATquantize forward")
-            output = quantize_algorithm.linear_quantize(input, scale, zero_point, True)
-            output = quantize_algorithm.linear_dequantize(output, scale, zero_point, True)
+            output = torch.round((input - zero_point)/scale)
+            output = output*scale + zero_point
+            #output = quantize_algorithm.linear_quantize(input, scale, zero_point, True)
+            #output = quantize_algorithm.linear_dequantize(output, scale, zero_point, True)
             return output
         
         @staticmethod
@@ -66,4 +68,21 @@ class PytorchDoReFaQuantizer(TorchCompressor):
         out = out /( 2 * out.abs().max()) + 0.5
         out = self.DoReFaQuantizeSTE.apply(out)
         out = 2 * out -1
+
+class TensorflowQATquantizer(TensorflowCompressor):
+    def __init__(self, q_bits):
+        super().__init__()
+        self.q_bits = q_bits
+    
+    def quantize_input(self, input_param):
+        a = tf.stop_gradient(tf.reduce_min(input_param))
+        b = tf.stop_gradient(tf.reduce_max(input_param))
+        n = tf.cast(2 ** self.q_bits, tf.float32)
+        scale = b-a/(n-1)
+        
+        with tf.get_default_graph.gradient_override_map({'Round': 'Identity'}):
+            qw = tf.round((input_param-a)/scale)*scale +a
+        
+        return qw
+
 
