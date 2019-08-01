@@ -1,6 +1,7 @@
 from level_pruner import TfLevelPruner
 from naive_quantizer import TfNaiveQuantizer
-
+from AGPruner import TfAGPruner,TfSensitivityPruner
+from QATquantizer import TfDeReFaQuantizer,TfQATquantizer
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 
@@ -32,11 +33,17 @@ class Mnist:
         self.train_step = None
         self.accuracy = None
 
+        self.w1 = None
+        self.b1 = None
+        self.fcw1 = None
+        self.cross = None
         with tf.name_scope('reshape'):
             x_image = tf.reshape(images, [ -1, 28, 28, 1 ])
         with tf.name_scope('conv1'):
             w_conv1 = weight_variable([ 5, 5, 1, 32 ])
+            self.w1 = w_conv1
             b_conv1 = bias_variable([ 32 ])
+            self.b1 = b_conv1
             h_conv1 = tf.nn.relu(conv2d(x_image, w_conv1) + b_conv1)
         with tf.name_scope('pool1'):
             h_pool1 = max_pool(h_conv1, 2)
@@ -48,6 +55,7 @@ class Mnist:
             h_pool2 = max_pool(h_conv2, 2)
         with tf.name_scope('fc1'):
             w_fc1 = weight_variable([ 7 * 7 * 64, 1024 ])
+            self.fcw1 = w_fc1
             b_fc1 = bias_variable([ 1024 ])
         h_pool2_flat = tf.reshape(h_pool2, [ -1, 7 * 7 * 64 ])
         h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, w_fc1) + b_fc1)
@@ -59,6 +67,7 @@ class Mnist:
             y_conv = tf.matmul(h_fc1_drop, w_fc2) + b_fc2
         with tf.name_scope('loss'):
             cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels = labels, logits = y_conv))
+            self.cross = cross_entropy
         with tf.name_scope('adam_optimizer'):
             self.train_step = tf.train.AdamOptimizer(0.0001).minimize(cross_entropy)
         with tf.name_scope('accuracy'):
@@ -73,8 +82,15 @@ def main():
 
     model = Mnist()
 
-    TfNaiveQuantizer().compress_default_graph()
-
+    #TfNaiveQuantizer().compress_default_graph()
+    TfDeReFaQuantizer(q_bits = 8).compress_default_graph()
+    #TfAGP = TfAGPruner(initial_sparsity=0, final_sparsity=0.8, start_epoch=1, end_epoch=10, frequency=1)
+    #TfPruner = TfSensitivityPruner(sparsity = 0.8)
+    #TfPruner.compress_default_graph()
+    
+    writer = tf.summary.FileWriter("log/simple_example.log", tf.get_default_graph())
+    print('writer done')
+    writer.close()
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         for batch_idx in range(2000):
@@ -90,7 +106,10 @@ def main():
                     model.labels: data.test.labels,
                     model.keep_prob: 1.0
                 })
+                #TfPruner.update_graph(sess)
                 print('test accuracy', test_acc)
+                #print(tf.gradients(model.cross,[model.w1, model.fcw1]))
+        
         test_acc = model.accuracy.eval(feed_dict = {
             model.images: test.images,
             model.labels: test.labels,

@@ -109,7 +109,11 @@ class TorchQuantizer(TorchCompressor):
 
     def compress(self, model: Module) -> None:
         super().compress(model)
+        count = 0
         for layer_info in _torch_detect_prunable_layers(model):
+            if count == 0:
+                count = count +1
+                continue
             self._instrument_layer(layer_info)
 
     def _instrument_layer(self, layer_info: TorchLayerInfo):
